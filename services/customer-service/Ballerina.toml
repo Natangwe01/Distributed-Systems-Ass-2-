@@ -1,0 +1,8 @@
+[package]
+org = "foodapp"
+name = "customer_service"
+version = "0.1.0"
+distribution-version = "2201.10.0"
+
+[build-options]
+observabilityIncluded = true

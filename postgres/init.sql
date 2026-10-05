@@ -1,0 +1,7 @@
+CREATE DATABASE customers;
+CREATE DATABASE restaurants;
+CREATE DATABASE orders;
+CREATE DATABASE payments;
+CREATE DATABASE deliveries;
+CREATE DATABASE notifications;
+CREATE DATABASE admin;

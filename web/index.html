@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FoodApp</title>
+<style>
+:root{--bg:#fff;--fg:#1c1917;--card:#f5f5f4;--line:#d6d3d1;--accent:#c2410c}
+@media(prefers-color-scheme:dark){:root{--bg:#171717;--fg:#e7e5e4;--card:#262626;--line:#404040}}
+*{box-sizing:border-box}body{margin:0;font:15px system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+header{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line)}
+header b{color:var(--accent);font-size:18px}nav{display:flex;gap:6px;flex-wrap:wrap}
+main{max-width:760px;margin:0 auto;padding:14px}
+button,input,select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg)}
+button{cursor:pointer;background:var(--accent);color:#fff;border-color:var(--accent)}
+nav button{background:var(--card);color:var(--fg);border-color:var(--line)}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.row>*{flex:1 1 140px}
+.card,.item{background:var(--card);border-radius:8px;padding:10px;margin:6px 0;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.item input{width:70px;flex:none}pre{background:var(--card);padding:10px;border-radius:8px;overflow:auto}
+#msg{padding:8px 14px;color:var(--accent);min-height:1.4em}small{opacity:.7}
+</style></head><body>
+<header><b>FoodApp</b><nav id="nav"></nav></header>
+<div id="msg"></div>
+<main>
+<section data-title="Customer">
+  <h3>Set up</h3><small id="who"></small>
+  <div class="row"><input id="cn" placeholder="Name"><input id="ce" placeholder="Email"><input id="cp" placeholder="Phone"><button onclick="newCust()">Register</button></div>
+  <div class="row"><input id="rn" placeholder="Restaurant name"><input id="ra" placeholder="Restaurant address"><button onclick="newRest()">Add restaurant</button></div>
+  <div class="row"><select id="mr"></select><input id="mn" placeholder="Menu item"><input id="mp" type="number" placeholder="Price"><button onclick="newItem()">Add item</button></div>
+  <h3>Order</h3>
+  <select id="rest" onchange="menu()" style="width:100%"></select><div id="menu"></div>
+  <div class="row"><input id="addr" placeholder="Delivery address"></div>
+  <div id="surge"></div><div class="row"><button onclick="place()">Place order</button></div>
+  <h3>Tracking</h3><div id="track"><small>No order yet.</small></div>
+</section>
+<section data-title="Kitchen">
+  <div class="row"><select id="kr"></select><button onclick="loadKitchen()">Load orders</button></div><div id="kitchen"></div>
+</section>
+<section data-title="Driver">
+  <div class="row"><input id="do" placeholder="Order id"></div>
+  <div class="row"><button onclick="dstep('start')">Start delivery</button><button onclick="simulate()">Simulate driving</button><button onclick="dstep('complete')">Complete</button></div>
+</section>
+<section data-title="Admin">
+  <div class="row"><button onclick="loadAdmin()">Refresh stats</button></div><pre id="adm"></pre>
+</section>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(m,u,b){const r=await fetch(u,{method:m,headers:{'Content-Type':'application/json'},body:b?JSON.stringify(b):undefined});
+  const t=await r.text();let j=t;try{j=JSON.parse(t)}catch{}
+  if(!r.ok)throw new Error(typeof j==='string'?j:JSON.stringify(j));return j}
+const S=JSON.parse(localStorage.getItem('foodapp')||'{}'),save=()=>localStorage.setItem('foodapp',JSON.stringify(S));
+const say=m=>{$('#msg').textContent=m};
+const run=f=>async(...a)=>{try{await f(...a)}catch(e){say('Error: '+e.message)}};
+const secs=[...document.querySelectorAll('section')];
+$('#nav').innerHTML=secs.map((s,i)=>`<button onclick="tab(${i})">${s.dataset.title}</button>`).join('');
+window.tab=i=>secs.forEach((s,j)=>s.hidden=i!==j);tab(0);
+const who=()=>{$('#who').textContent=S.cust?'Registered as customer '+S.cust.slice(0,8):'Not registered yet'};
+
+const loadRests=run(async()=>{const rs=await api('GET','/restaurants');
+  const o=rs.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('');
+  ['#rest','#mr','#kr'].forEach(s=>$(s).innerHTML=o);await menu()});
+window.menu=run(async()=>{const id=$('#rest').value;if(!id){$('#menu').innerHTML='<p>No restaurants yet.</p>';return}
+  const m=await api('GET',`/restaurants/${id}/menu`);
+  $('#menu').innerHTML=m.map(i=>`<label class="item"><span>${esc(i.name)} · N$${esc(i.price)}</span><input type="number" min="0" value="0" data-id="${esc(i.id)}" data-name="${esc(i.name)}" data-price="${esc(i.price)}"></label>`).join('')||'<p>Empty menu.</p>'});
+window.newCust=run(async()=>{const c=await api('POST','/customers',{name:$('#cn').value,email:$('#ce').value,phone:$('#cp').value});S.cust=c.id;save();who();say('Registered')});
+window.newRest=run(async()=>{await api('POST','/restaurants',{name:$('#rn').value,address:$('#ra').value});await loadRests();say('Restaurant added')});
+window.newItem=run(async()=>{await api('POST',`/restaurants/${$('#mr').value}/menu`,{name:$('#mn').value,price:+$('#mp').value});await menu();say('Item added')});
+const loadSurge=run(async()=>{const s=await api('GET','/orders/surge');
+  $('#surge').innerHTML=`Delivery fee: <b>N$${esc(s.deliveryFee)}</b> ${s.multiplier>1?`<small>(surge ×${esc(s.multiplier)}, high demand)</small>`:''}`});
+window.place=run(async()=>{if(!S.cust)throw new Error('Register first');
+  const items=[...document.querySelectorAll('#menu input')].filter(i=>+i.value>0).map(i=>({menuItemId:i.dataset.id,name:i.dataset.name,quantity:+i.value,price:+i.dataset.price}));
+  if(!items.length||!$('#addr').value)throw new Error('Pick items and enter a delivery address');
+  const r=await api('POST','/orders',{customerId:S.cust,restaurantId:$('#rest').value,deliveryAddress:$('#addr').value,items});
+  S.order=r.orderId;save();$('#do').value=r.orderId;say(`Order placed. Total N$${r.total} (delivery N$${r.deliveryFee}, surge ×${r.surgeMultiplier})`);loadSurge();track()});
+async function track(){if(!S.order)return;
+  try{const [o,n,l]=await Promise.all([api('GET','/orders/'+S.order),api('GET','/notifications?orderId='+S.order),api('GET',`/deliveries/${S.order}/location`).catch(()=>null)]);
+    const map=l&&l.lat!=null?`<p><a target="_blank" rel="noopener" href="https://www.openstreetmap.org/?mlat=${l.lat}&mlon=${l.lon}#map=16/${l.lat}/${l.lon}">Driver location: ${(+l.lat).toFixed(4)}, ${(+l.lon).toFixed(4)}</a></p>`:'';
+    $('#track').innerHTML=`<div class="card"><b>${esc(o.status)}</b><span>N$${esc(o.total)}</span></div>${map}`+
+      n.filter(x=>x.recipient==='customer').map(x=>`<div><small>${esc(x.message)}</small></div>`).join('')}catch(e){}}
+window.loadKitchen=run(async()=>{const os=await api('GET',`/restaurants/${$('#kr').value}/orders`);
+  $('#kitchen').innerHTML=os.map(o=>`<div class="card"><span><b>${esc(o.orderId.slice(0,8))}</b> ${esc(o.status)} · N$${esc(o.amount)}</span>`+
+    (o.status==='CONFIRMED'?`<button onclick="kstep('${esc(o.orderId)}','preparing')">Start preparing</button>`:'')+
+    (o.status==='PREPARING'?`<button onclick="kstep('${esc(o.orderId)}','ready')">Mark ready</button>`:'')+`</div>`).join('')||'<p>No orders.</p>'});
+window.kstep=run(async(id,s)=>{await api('PUT',`/restaurants/orders/${id}/${s}`);await loadKitchen()});
+let sim;const stopSim=()=>clearInterval(sim);
+window.dstep=run(async s=>{await api('PUT',`/deliveries/${$('#do').value.trim()}/${s}`);say('Delivery '+s+': ok');if(s==='complete')stopSim()});
+window.simulate=()=>{const id=$('#do').value.trim();stopSim();let lat=-22.57,lon=17.0836;
+  sim=setInterval(run(async()=>{lat+=0.0007*Math.random();lon+=0.0007*Math.random();
+    await api('PUT',`/deliveries/${id}/location`,{lat,lon});say(`Driver at ${lat.toFixed(4)}, ${lon.toFixed(4)}`)}),2000)};
+window.loadAdmin=run(async()=>{const [s,r,d]=await Promise.all([api('GET','/admin/stats/summary'),api('GET','/admin/stats/restaurants'),api('GET','/admin/stats/drivers')]);
+  $('#adm').textContent=JSON.stringify({summary:s,restaurants:r,drivers:d},null,2)});
+who();$('#do').value=S.order||'';loadRests();loadSurge();setInterval(loadSurge,10000);setInterval(track,3000);track();
+</script></body></html>
