@@ -1,0 +1,12 @@
+{
+  "title": "FoodApp services", "uid": "foodapp", "schemaVersion": 39, "refresh": "10s",
+  "time": {"from": "now-15m", "to": "now"},
+  "panels": [
+    {"id": 1, "type": "timeseries", "title": "Services up (1 = scraped OK)",
+     "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}, "datasource": {"type": "prometheus", "uid": "prom"},
+     "targets": [{"expr": "up", "legendFormat": "{{service}}", "refId": "A"}]},
+    {"id": 2, "type": "timeseries", "title": "HTTP requests per second",
+     "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}, "datasource": {"type": "prometheus", "uid": "prom"},
+     "targets": [{"expr": "sum by (service) (rate(requests_total_value[1m]))", "legendFormat": "{{service}}", "refId": "A"}]}
+  ]
+}

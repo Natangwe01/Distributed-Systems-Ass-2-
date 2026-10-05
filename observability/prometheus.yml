@@ -1,0 +1,31 @@
+global:
+  scrape_interval: 10s
+scrape_configs:
+  - job_name: customer-service
+    static_configs:
+      - targets: ['customer-service:9797']
+        labels: {service: customer-service}
+  - job_name: restaurant-service
+    static_configs:
+      - targets: ['restaurant-service:9797']
+        labels: {service: restaurant-service}
+  - job_name: order-service
+    static_configs:
+      - targets: ['order-service:9797']
+        labels: {service: order-service}
+  - job_name: payment-service
+    static_configs:
+      - targets: ['payment-service:9797']
+        labels: {service: payment-service}
+  - job_name: delivery-service
+    static_configs:
+      - targets: ['delivery-service:9797']
+        labels: {service: delivery-service}
+  - job_name: notification-service
+    static_configs:
+      - targets: ['notification-service:9797']
+        labels: {service: notification-service}
+  - job_name: admin-service
+    static_configs:
+      - targets: ['admin-service:9797']
+        labels: {service: admin-service}
